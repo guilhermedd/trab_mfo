@@ -1,2 +1,2 @@
-# trab_mfo
+# Trabalho de MFO
 Autores: César Eduardo de Souza &amp; Guilherme Diel
