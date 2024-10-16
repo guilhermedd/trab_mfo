@@ -10,20 +10,20 @@ module jogo {
         dmg: int,
         numero_dado: int,
         ja_jogou: bool,
-
+        valor_dado: int,
         tipo_criatura: TipoCriatura
     }
 
     pure val DADO = 1.to(20)
     
     pure val CRIATURAS = Set(
-        { name: "Mago1", hp: 20, dmg: 10, ja_jogou: false,tipo_criatura: Mago },
-        { name: "Cacador1", hp: 20, dmg: 10, ja_jogou: false, tipo_criatura: Cacador },
-        { name: "Druida1", hp: 20, dmg: 10, ja_jogou: false, tipo_criatura: Druida },
-        { name: "Mike wazousky", hp: 100, dmg: 10, ja_jogou: false, tipo_criatura: Monstro }
+        { name: "Roz",              hp: 20,     dmg: 10, ja_jogou: false, valor_dado: -1, tipo_criatura: Mago       },
+        { name: "Boo",              hp: 20,     dmg: 10, ja_jogou: false, valor_dado: -1, tipo_criatura: Cacador    },
+        { name: "Sullivan",         hp: 20,     dmg: 10, ja_jogou: false, valor_dado: -1, tipo_criatura: Druida     },
+        { name: "Mike wazousky",    hp: 100,    dmg: 10, ja_jogou: false, valor_dado: -1, tipo_criatura: Monstro    }
     )
 
-    var criaturas: int -> Criatura
+    var criaturas: Criatura -> int
     var chave_max: int
     var atacante: Criatura
 
@@ -39,12 +39,10 @@ module jogo {
         { ...c, ja_jogou: true}
     }
     
-
     // Ação: Monstro ataca o Criatura
     action ataque(attacker: Criatura, receiver: Criatura): bool = all {
         criaturas' = criaturas.setBy(receiver.name, p => p.dano_criatura(attacker.dmg))
     }
-
 
     // Ação: Ataque que decide o próximo movimento de acordo com quem ainda está vivo
     action batalha(attacker: Criatura, receiver: Criatura): bool = {
@@ -55,25 +53,23 @@ module jogo {
             ataque(attacker, receiver),
             terminou_acao(attacker)
         }            
-        
     }
 
     pure def map_dos_dados_rolados(dado: int): int -> Criatura = {
         CRIATURAS.map(c => dado -> c)
     }
 
-    pure def get_max_key(m: Set[a]): int = {
-        m.fold(0, (acc, idx) => if (idx > acc) idx else acc) // retorna
-    }
-
-    // Ação: Inicializa o jogo
     action init = {
         // nondet criatura_inicial = CRIATURAS.filter(criatura => criatura.tipo_criatura != Monstro).oneOf()
         // nondet monstro_inicial = CRIATURAS.filter(criatura => criatura.tipo_criatura == Monstro).oneOf()
-        nondet dado = DADO.oneOf()
+        nondet dado_1 = DADO.oneOf()
+        nondet dado_2 = DADO.oneOf()
+        nondet dado_3 = DADO.oneOf()
+        nondet dado_4 = DADO.oneOf()
+        nondet criatura_map = CRIATURAS.setOfMaps(Set(dado_1, dado_2, dado_3, dado_4)).oneOf()
         all {
-            criaturas' = CRIATURAS.map(c => DADO.oneOf() -> c),
-            chave_max' = get_max_key(criaturas.keys()),
+            criaturas' = criatura_map, // criatura -> dado
+            chave_max' = criaturas.fold(0, (acc, criatura) => if (criatura > acc) criatura else acc),
             atacante' = criaturas.get(chave_max),
         }
     }
