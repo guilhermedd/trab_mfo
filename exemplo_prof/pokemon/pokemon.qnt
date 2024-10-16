@@ -1,8 +1,8 @@
 /// Ensure that pokemons always use the elemental attack when in advantage, and
 /// never use it in disadvantage.
 module pokemon {
-  import basicSpells.* from "../spells/basicSpells"
-  import rareSpells.* from "../spells/rareSpells"
+  import basicSpells.* from "../../spells/basicSpells"
+  import rareSpells.* from "../../spells/rareSpells"
 
   type PokemonType = Water | Fire | Grass | Electric
   type DamageModifier = SuperEffective | NotVeryEffective | Normal
