@@ -25,7 +25,8 @@ module jogo {
     )
 
     pure val OVELHA = {name: "Shaun", hp: 1, dmg: 0, numero_dado: 0, ja_jogou: false, tipo_criatura: Animal, ataque_especial: Nenhum, efeito_aplicado: Nenhum}
-    
+    pure val URSO = {name: "Pooh", hp: 60, dmg: 20, numero_dado: 0, ja_jogou: false, tipo_criatura: Animal, ataque_especial: Nenhum, efeito_aplicado: Nenhum}
+
     pure val DADO = 1.to(20)
     pure val escolhas_de_ataques_para_as_batalhas = Set("ataque_simples", "usar_habilidade", "curar_paralisia")
 
@@ -34,18 +35,19 @@ module jogo {
     var acabou_de_atacar: Set[Criatura -> int]
     var atacante: Criatura -> int
     var alvo: Criatura
+    var druida_backup_pra_quando_acabar_a_transformacao: Criatura
 
+
+//-----------------------------------------------------FUNCOES AUXILIARES--------------------------------------------------------------------
     pure def dano_criatura(p: Criatura, d: int): Criatura = {
         { ...p, hp: p.hp - d }
     }
     pure def curar_paralisia(c: Criatura): Criatura = {
         { ...c, efeito_aplicado: Nenhum}
     }
-
     pure def update_dmg_monstro(m: Criatura): Criatura = {
         { ...m, dmg: 20}
     }
-
     pure def terminou_acao(c: Criatura): Criatura = {
         { ...c, ja_jogou: true}
     }
@@ -65,9 +67,36 @@ module jogo {
         pure val aux = crias.set(acabou_de_atacar.numero_dado, inverter_dado(acabou_de_atacar))
         aux.set(monstro.numero_dado, update_dmg_monstro(monstro))
     }
+    pure def adicionar_dado(criatura: Criatura, dado: int): Criatura = {
+        {...criatura, numero_dado: dado}
+    }
 
 
-    // Ação: Monstro ataca o Criatura
+
+
+//-----------------------------------------------------HABILIDADES ESPECIAIS--------------------------------------------------------------------
+    action paralisia(atacante: Criatura, tomador: Criatura): bool = all {
+        atacante.tipo_criatura == Monstro,
+        tomador' = aplica_efeito(atacante, tomador),
+    }
+    action ilusao(atacante: Criatura): bool = all {
+        atacante.tipo_criatura == Mago,
+        criatura_dado' = criatura_dado.put(OVELHA.numero_dado, OVELHA),
+    }
+    action transformacao_selvagem(atacante: Criatura): bool = 
+        all {
+        atacante.tipo_criatura == Druida,
+        druida_backup_pra_quando_acabar_a_transformacao' = atacante,                                        
+        criatura_dado' = criatura_dado.set(atacante.numero_dado, URSO),   
+    }
+    action cegueira(atacante: Criatura, tomador: Criatura): bool = all {
+        atacante.tipo_criatura == Cacador,
+        tomador.tipo_criatura == Monstro,
+        tomador' = aplica_efeito(atacante, tomador),
+    }
+
+
+//-----------------------------------------------------FUNCOES BASICAS--------------------------------------------------------------------
     action ataque_simples(atacante: Criatura, receiver: Criatura): bool = {
         pure val nova_cria = dano_criatura(receiver, atacante.dmg)
         all {
@@ -75,11 +104,6 @@ module jogo {
             criatura_dado' = criatura_dado.set(nova_cria.numero_dado, nova_cria),
         }
     }
-
-    pure def adicionar_dado(criatura: Criatura, dado: int): Criatura = {
-        {...criatura, numero_dado: dado}
-    }
-
     action desparalizar(atacante: Criatura, receiver: Criatura): bool = {
         nondet curado = criatura_dado.values().filter(c => c.tipo_criatura != Monstro and c.efeito_aplicado == Paralisia).oneOf()
         val aux = remove_efeito(curado)
@@ -88,7 +112,10 @@ module jogo {
             criatura_dado' = criatura_dado.set(receiver.numero_dado, aux),
         }
     }
-
+    action desvirar_urso_de_volta_para_druida(c: Criatura): bool = all{
+        c.tipo_criatura == Druida,
+        criatura_dado' = criatura_dado.set(c.numero_dado, druida_backup_pra_quando_acabar_a_transformacao),
+    }
     action usar_habilidade(atacante: Criatura, receiver: Criatura): bool = {
         val dado_cria_tomante = crias.get(receiver)
         val aux = crias.mapRemove(receiver)
@@ -97,26 +124,25 @@ module jogo {
             crias' = aux.put(receiver, dado_cria_tomante),
         }
     }
-
     action escolha_aleatoria(atacante: Criatura, recebedor: Criatura): bool = any {
         desparalizar(atacante, recebedor),
         usar_habilidade(atacante, recebedor),
         ataque_simples(atacante, recebedor),
     }
 
-    action ilusao(atacante: Criatura): bool = all {
-        criatura_dado' = criatura_dado.put(OVELHA.numero_dado, OVELHA),
-    }
 
-    // Ação: Ataque que decide o próximo movimento de acordo com quem ainda está vivo
+//-----------------------------------------------------FUNCOES PRINCIPAIS--------------------------------------------------------------------
+
     action batalha(atacante: Criatura, receiver: Criatura): bool ={
         nondet tipo_de_ataque = escolhas_de_ataques_para_as_batalhas.oneOf()
         val tem_alguem_paralisado = criatura_dado.values().filter(c => c.tipo_criatura != Monstro).forall(c => c.efeito_aplicado != Paralisia)
         all {
+            //garantias
             atacante.name != "Shaun",
             atacante.hp > 0, 
             receiver.hp > 0,
             atacante.ja_jogou == false,
+            //ações
             escolha_aleatoria(atacante, receiver),        
             criatura_dado' = criatura_dado.set(atacante.numero_dado, terminou_acao(atacante)),
         }
@@ -178,6 +204,18 @@ module jogo {
             // crias' = if (crias.size() > 0) crias else criaturas_disponiveis, 
         }
     }
+
+
+
+
+//-----------------------------------------------------INVARIANTES--------------------------------------------------------------------
+
+
+
+
+
+
+
 
 
     // Invariante: O monstro ou o Criatura ainda estão vivos
