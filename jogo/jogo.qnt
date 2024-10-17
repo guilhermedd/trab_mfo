@@ -2,7 +2,7 @@ module jogo {
     import basicSpells.* from "../spells/basicSpells"
     // import rareSpells.* from "../spells/rareSpell"
 
-    type TipoCriatura = Mago | Cacador | Druida | Monstro
+    type TipoCriatura = Mago | Cacador | Druida | Monstro | Animal
     type AtaqueEspecial = Cegueira | TransformacaoSelvagem | Ilusao | Paralisia | Nenhum
 
 
@@ -23,6 +23,8 @@ module jogo {
         { name: "Sullivan",         hp: 20,     dmg: 10, numero_dado: 0, ja_jogou: false, tipo_criatura: Druida,    ataque_especial: TransformacaoSelvagem, efeito_aplicado: Nenhum },
         { name: "Mike wazousky",    hp: 100,    dmg: 10, numero_dado: 0, ja_jogou: false, tipo_criatura: Monstro,   ataque_especial: Paralisia,             efeito_aplicado: Nenhum }
     )
+
+    pure val OVELHA = {name: "Shaun", hp: 1, dmg: 0, numero_dado: 0, ja_jogou: false, tipo_criatura: Animal, ataque_especial: Nenhum, efeito_aplicado: Nenhum}
     
     pure val DADO = 1.to(20)
     pure val escolhas_de_ataques_para_as_batalhas = Set("ataque_simples", "usar_habilidade", "curar_paralisia")
@@ -35,6 +37,9 @@ module jogo {
 
     pure def dano_criatura(p: Criatura, d: int): Criatura = {
         { ...p, hp: p.hp - d }
+    }
+    pure def curar_paralisia(c: Criatura): Criatura = {
+        { ...c, efeito_aplicado: Nenhum}
     }
 
     pure def update_dmg_monstro(m: Criatura): Criatura = {
@@ -50,68 +55,77 @@ module jogo {
     pure def remove_efeito(c: Criatura): Criatura = {
         { ...c, efeito_aplicado: Nenhum}
     }
-    // Ação: Monstro ataca o Criatura
-    action ataque_simples(attacker: Criatura, receiver: Criatura): bool = {
-        // crias' = crias.setBy(receiver, p => receiver.dano_criatura(attacker.dmg)),
-        val dado = crias.get(receiver)
-        val aux = crias.mapRemove(receiver)
-
-        all {
-            dano_criatura(dado, attacker.dmg),    
-            crias' = aux.put(receiver, dado),
-        }
+    pure def inverter_dado(c: Criatura): Criatura = {
+        { ...c, numero_dado: -c.numero_dado}
+    }
+    pure def atualiza_map(crias: int -> Criatura): int -> Criatura = {
+        crias.values().map(cria => (cria.numero_dado, cria)).setToMap() 
+    }
+    pure def atualizar_atributos_do_monstro (crias: int -> Criatura, acabou_de_atacar: Criatura, monstro: Criatura): int -> Criatura = {
+        pure val aux = crias.set(acabou_de_atacar.numero_dado, inverter_dado(acabou_de_atacar))
+        aux.set(monstro.numero_dado, update_dmg_monstro(monstro))
     }
 
-    // pure def curar_paralisia(c : Criatura): Criatura = {
-    //     { ...c, hp: c.hp + 10}
-    //     // all {
-    //     crias' = crias.map(c => remove_efeito(c))
-    //     // }
 
-    // }
+    // Ação: Monstro ataca o Criatura
+    action ataque_simples(atacante: Criatura, receiver: Criatura): bool = {
+        pure val nova_cria = dano_criatura(receiver, atacante.dmg)
+        all {
+            atacante.tipo_criatura != Monstro,
+            criatura_dado' = criatura_dado.set(nova_cria.numero_dado, nova_cria),
+        }
+    }
 
     pure def adicionar_dado(criatura: Criatura, dado: int): Criatura = {
         {...criatura, numero_dado: dado}
     }
 
-    // Ação: Ataque que decide o próximo movimento de acordo com quem ainda está vivo
-    action batalha(attacker: Criatura, receiver: Criatura): bool ={
-        nondet tipo_de_ataque = escolhas_de_ataques_para_as_batalhas.oneOf()
-        val tem_alguem_paralisado = CRIATURAS.forall(c => criatura_dado.get(c).efeito_aplicado == Nenhum)
-        // if(crias.keys().filter(c => c.efeito_aplicado == Paralisia).size() >= 1){
-        //     tem_alguem_paralisado = true
-        // } else {
-        //     tem_alguem_paralisado = false
-        // }
-        nondet tipo_de_ataque = Set("ataque_simples", "usar_habilidade", "curar_paralisia").oneOf()
+    action desparalizar(atacante: Criatura, receiver: Criatura): bool = {
+        nondet curado = criatura_dado.values().filter(c => c.tipo_criatura != Monstro and c.efeito_aplicado == Paralisia).oneOf()
+        val aux = remove_efeito(curado)
         all {
-            attacker != receiver,
-            attacker.hp > 0, 
-            receiver.hp > 0,
-            match tipo_de_ataque {
-                | "ataque_simples" => ataque_simples(attacker, receiver)
-                | "usar_habilidade" => usar_habilidade(attacker, receiver)
-                | "curar_paralisia" => match tem_alguem_paralisado {
-                    | true => curar_paralisia(receiver)
-                    | false => usar_habilidade(attacker, receiver)
-                }
-            },            
-            terminou_acao(attacker),
+            atacante.tipo_criatura != Monstro,
+            criatura_dado' = criatura_dado.set(receiver.numero_dado, aux),
         }
     }
 
-    action usar_habilidade(attacker: Criatura, receiver: Criatura): bool = {
+    action usar_habilidade(atacante: Criatura, receiver: Criatura): bool = {
         val dado_cria_tomante = crias.get(receiver)
         val aux = crias.mapRemove(receiver)
         all {
-            aplica_efeito(attacker, receiver),
+            aplica_efeito(atacante, receiver),
             crias' = aux.put(receiver, dado_cria_tomante),
         }
     }
 
-    action remover_paralisia(removedor: Criatura, paralisado: Criatura): Criatura = {
-        crias' = crias
-    } 
+    action escolha_aleatoria(atacante: Criatura, recebedor: Criatura): bool = any {
+        desparalizar(atacante, recebedor),
+        usar_habilidade(atacante, recebedor),
+        ataque_simples(atacante, recebedor),
+    }
+
+    action ilusao(atacante: Criatura): bool = all {
+        criatura_dado' = criatura_dado.put(OVELHA.numero_dado, OVELHA),
+    }
+
+    // Ação: Ataque que decide o próximo movimento de acordo com quem ainda está vivo
+    action batalha(atacante: Criatura, receiver: Criatura): bool ={
+        nondet tipo_de_ataque = escolhas_de_ataques_para_as_batalhas.oneOf()
+        val tem_alguem_paralisado = criatura_dado.values().filter(c => c.tipo_criatura != Monstro).forall(c => c.efeito_aplicado != Paralisia)
+        all {
+            atacante.name != "Shaun",
+            atacante.hp > 0, 
+            receiver.hp > 0,
+            atacante.ja_jogou == false,
+            escolha_aleatoria(atacante, receiver),        
+            criatura_dado' = criatura_dado.set(atacante.numero_dado, terminou_acao(atacante)),
+        }
+        // Druida usa habilidade em si | Montro ataca Animal | Mago adiciona ovelha | Cacador cega
+        // Se atacante for Monstro, ele ataca o Animal, nao pode usar habilidade
+        // No usar habilidade, se atacante.tipo_criatura == Druida, atacante = recebedor
+        // Se Cacador usar habilidade, recebedor == Monstro
+        // All: Se atacante = Monstro, Recebedor != Monstro
+    }
 
     action init = {
         // pure val auxCreatures = CRIATURAS
@@ -124,42 +138,22 @@ module jogo {
         nondet monstro_inicial = CRIATURAS.filter(criatura => criatura.tipo_criatura == Monstro).oneOf()
         
         nondet dado_mago = DADO.oneOf()
-        DADO = DADO.setRemove(dado_mago)
-        mago = {...mago, mago.numero_dado: dado_mago}
-
-        nondet dado_cacador = DADO.oneOf()
-        DADO = DADO.setRemove(dado_cacador)
-        cacador = {...cacador, cacador.numero_dado: dado_cacador}
-
-
-        nondet dado_druida = DADO.oneOf()
-        DADO = DADO.setRemove(dado_druida)
-        druida = {...druida, druida.numero_dado: dado_druida}
-
-        nondet dado_monstro = DADO.oneOf()
-        monstro = {...monstro, monstro.numero_dado: dado_monstro}
+        nondet dado_cacador = DADO.setRemove(dado_mago).oneOf()
+        nondet dado_druida = DADO.setRemove(dado_mago).setRemove(dado_cacador).oneOf()
+        nondet dado_monstro = DADO.setRemove(dado_mago).setRemove(dado_cacador).setRemove(dado_druida).oneOf()
 
         nondet criatura_aux = CRIATURAS.oneOf()
 
 
-        pure val aux = Set(mago, cacador, druida, monstro)
-        crias' = aux.map(cria => (cria, cria.numero_dado)).setToMap() // mudar dado
-        criatura_dado' = aux.map(cria => (cria.numero_dado, cria)).setToMap()  // mudar criaturas
+        pure val aux = Set({...mago, numero_dado: dado_mago}, {...cacador, numero_dado: dado_cacador}, {...druida, numero_dado: dado_druida}, {...monstro, numero_dado: dado_monstro})
 
-        // nondet criatura1 = auxCreatures.filter(criatura => criatura.hp > 0).oneOf()
-        // nondet criatura2 = auxCreatures.setRemove(Set(criatura1)).filter(criatura => criatura.hp > 0).oneOf()
-        // nondet criatura3 = auxCreatures.exclude(Set(criatura1, criatura2)).filter(criatura => criatura.hp > 0).oneOf()
-        // nondet criatura4 = auxCreatures.exclude(Set(criatura1, criatura2, criatura3)).filter(criatura => criatura.hp > 0).oneOf()
-        // pure val criaturas_disponiveis = Set((criatura1 -> dado_1), (criatura2 -> dado_2), (criatura3 -> dado_3), (criatura4 -> dado_4))
-
+        pure val aux2 = criatura_dado' = aux.map(cria => (cria.numero_dado, cria)).setToMap()  // mudar criaturas
         all {
-            acabou_de_atacar' = crias.fold((0, 0), (acc, criatura) => if (criatura._2 > acc._2) criatura else acc),
-            atacante' = acabou_de_atacar._1,
-            alvo' = if(atacante.tipo_criatura == Monstro) personagem_inicial else monstro_inicial,
-            batalha(atacante, alvo),
+            acabou_de_atacar' = aux2.values().fold(personagem_inicial, (acc, criatura) => if (criatura.numero_dado > acc.numero_dado) criatura else acc),
+            alvo' = if(acabou_de_atacar.tipo_criatura == Monstro) personagem_inicial else monstro_inicial,
+            batalha(acabou_de_atacar, alvo),
             // crias' = criaturas_disponiveis.exclude(Set(acabou_de_atacar._1 -> acabou_de_atacar._2)).setToMap(),
-            crias.set(atacante, -crias.get(atacante)),
-            criatura_dado.set(dado_monstro, update_dmg_monstro(monstro_inicial)),
+            criatura_dado' = atualizar_atributos_do_monstro(aux2, acabou_de_atacar, monstro),
         }
     }
 
