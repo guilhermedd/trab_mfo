@@ -42,9 +42,6 @@ module jogo {
     pure def dano_criatura(p: Criatura, d: int): Criatura = {
         { ...p, hp: p.hp - d }
     }
-    pure def curar_paralisia(c: Criatura): Criatura = {
-        { ...c, efeito_aplicado: Nenhum}
-    }
     pure def update_dmg_monstro(m: Criatura): Criatura = {
         { ...m, dmg: 20}
     }
@@ -129,6 +126,20 @@ module jogo {
         usar_habilidade(atacante, recebedor),
         ataque_simples(atacante, recebedor),
     }
+    action escolha_aleatoria_mk2(atacante: Criatura, recebedor: Criatura): bool = {
+        nondet escolha = escolhas_de_ataques_para_as_batalhas.oneOf()
+        all {
+            if(escolha == "curar_paralisia") {
+                desparalizar(atacante, recebedor)
+            } else if(escolha == "usar_habilidade") {
+                usar_habilidade(atacante, recebedor)
+            } else if(escolha == "ataque_simples") {
+                ataque_simples(atacante, recebedor)
+            } else{
+                false
+            },
+        }
+    } 
 
 
 //-----------------------------------------------------FUNCOES PRINCIPAIS--------------------------------------------------------------------
