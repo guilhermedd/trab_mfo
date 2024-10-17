@@ -36,6 +36,7 @@ module jogo {
     var atacante: Criatura -> int
     var alvo: Criatura
     var druida_backup_pra_quando_acabar_a_transformacao: Criatura
+    var proximo_ataque: str 
 
 
 //-----------------------------------------------------FUNCOES AUXILIARES--------------------------------------------------------------------
@@ -67,7 +68,7 @@ module jogo {
     pure def adicionar_dado(criatura: Criatura, dado: int): Criatura = {
         {...criatura, numero_dado: dado}
     }
-
+    
 
 
 
@@ -121,25 +122,29 @@ module jogo {
             crias' = aux.put(receiver, dado_cria_tomante),
         }
     }
-    action escolha_aleatoria(atacante: Criatura, recebedor: Criatura): bool = any {
-        desparalizar(atacante, recebedor),
-        usar_habilidade(atacante, recebedor),
-        ataque_simples(atacante, recebedor),
-    }
-    action escolha_aleatoria_mk2(atacante: Criatura, recebedor: Criatura): bool = {
-        nondet escolha = escolhas_de_ataques_para_as_batalhas.oneOf()
+    
+    action escolha_aleatoria_mk2(atacante: Criatura, recebedor: Criatura, string_que_dita_a_habilidade: str): bool = {
         all {
-            if(escolha == "curar_paralisia") {
+            if(proximo_ataque == "curar_paralisia") {
                 desparalizar(atacante, recebedor)
-            } else if(escolha == "usar_habilidade") {
+            } else if(proximo_ataque == "usar_habilidade") {
                 usar_habilidade(atacante, recebedor)
-            } else if(escolha == "ataque_simples") {
+            } else if(proximo_ataque == "ataque_simples") {
                 ataque_simples(atacante, recebedor)
-            } else{
+            } else {
                 false
-            },
+            }
         }
     } 
+    action escolher_ataque(atacante: Criatura, recebedor: Criatura): bool = {
+        if(atacante.tipo_criatura == Monstro) {
+            proximo_ataque' = "paralisia"
+        } else {
+            nondet escolha = escolhas_de_ataques_para_as_batalhas.oneOf()
+            proximo_ataque' = escolha
+        }
+    }
+
 
 
 //-----------------------------------------------------FUNCOES PRINCIPAIS--------------------------------------------------------------------
@@ -154,10 +159,11 @@ module jogo {
             receiver.hp > 0,
             atacante.ja_jogou == false,
             //ações
-            escolha_aleatoria(atacante, receiver),        
+            escolher_ataque(atacante, receiver),
+            escolha_aleatoria_mk2(atacante, receiver),        
             criatura_dado' = criatura_dado.set(atacante.numero_dado, terminou_acao(atacante)),
         }
-        // Druida usa habilidade em si | Montro ataca Animal | Mago adiciona ovelha | Cacador cega
+        // Druida usa habilidade em si | Montro ataca Animal | Mago adiciona ovelhaovelha✅ | Cacador cegacega✅
         // Se atacante for Monstro, ele ataca o Animal, nao pode usar habilidade
         // No usar habilidade, se atacante.tipo_criatura == Druida, atacante = recebedor
         // Se Cacador usar habilidade, recebedor == Monstro
@@ -181,6 +187,7 @@ module jogo {
 
         nondet criatura_aux = CRIATURAS.oneOf()
 
+        nondet escolha = escolhas_de_ataques_para_as_batalhas.oneOf()
 
         pure val aux = Set({...mago, numero_dado: dado_mago}, {...cacador, numero_dado: dado_cacador}, {...druida, numero_dado: dado_druida}, {...monstro, numero_dado: dado_monstro})
 
@@ -221,14 +228,23 @@ module jogo {
 
 //-----------------------------------------------------INVARIANTES--------------------------------------------------------------------
 
-
-
-
-
-
-
-
-
     // Invariante: O monstro ou o Criatura ainda estão vivos
     // val inv = crias.values().exists(p => p.hp > 0) and monstro.hp > 0
+
+
+
+
+
+
+
+
+//-----------------------------------------------------LEGACY--------------------------------------------------------------------
+// action escolha_aleatoria(atacante: Criatura, recebedor: Criatura): bool = any {
+//         desparalizar(atacante, recebedor),
+//         usar_habilidade(atacante, recebedor),
+//         ataque_simples(atacante, recebedor),
+//     }
 }
+
+
+
