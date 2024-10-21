@@ -24,8 +24,8 @@ module jogo {
         { name: "Mike wazousky",    hp: 100,    dmg: 10, numero_dado: 0, ja_jogou: false, tipo_criatura: Monstro,   ataque_especial: Paralisia,             efeito_aplicado: Nenhum }
     )
 
-    pure val OVELHA = {name: "Shaun", hp: 1, dmg: 0, numero_dado: 0, ja_jogou: false, tipo_criatura: Animal, ataque_especial: Nenhum, efeito_aplicado: Nenhum}
-    pure val URSO = {name: "Pooh", hp: 60, dmg: 20, numero_dado: 0, ja_jogou: false, tipo_criatura: Animal, ataque_especial: Nenhum, efeito_aplicado: Nenhum}
+    pure val OVELHA = {name: "Shaun", hp: 1,  dmg: 0,  numero_dado: 0, ja_jogou: false, tipo_criatura: Animal, ataque_especial: Nenhum, efeito_aplicado: Nenhum}
+    pure val URSO = {  name: "Pooh",  hp: 60, dmg: 20, numero_dado: 0, ja_jogou: false, tipo_criatura: Animal, ataque_especial: Nenhum, efeito_aplicado: Nenhum}
 
     pure val DADO = 1.to(20)
     pure val escolhas_de_ataques_para_as_batalhas = Set("ataque_simples", "usar_habilidade", "curar_paralisia")
@@ -158,11 +158,9 @@ module jogo {
             else {ataque_simples(atacante, receiver)},
             dado_criaturas' = dado_criaturas.set(abs(atacante.numero_dado), terminou_acao(atacante)),
         }
-        // Druida usa habilidade em si✅ | Montro ataca AnimalAnimal🆘 | Mago adiciona ovelhaovelha✅ | Cacador cegacega✅
+        // Montro ataca AnimalAnimal🆘 | 
         // Se atacante for Monstro, ele ataca o Animal, nao pode usar habilidade🆘
         // No usar habilidade, se atacante.tipo_criatura == Druida, atacante = recebedor🆘
-        // Se Cacador usar habilidade, recebedor == Monstro
-        // All: Se atacante = Monstro, Recebedor != MonstroMonstro✅
     }
 
     action init = {
