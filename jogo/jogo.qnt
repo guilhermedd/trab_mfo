@@ -30,13 +30,13 @@ module jogo {
     pure val DADO = 1.to(20)
     pure val escolhas_de_ataques_para_as_batalhas = Set("ataque_simples", "usar_habilidade", "curar_paralisia")
 
-    var crias: Criatura -> int
+    // var crias: Criatura -> int
     var criatura_dado: int -> Criatura
     var acabou_de_atacar: Set[Criatura -> int]
     var atacante: Criatura -> int
     var alvo: Criatura
     var druida_backup_pra_quando_acabar_a_transformacao: Criatura
-    var proximo_ataque: str 
+    var proximo_ataque: str
 
 
 //-----------------------------------------------------FUNCOES AUXILIARES--------------------------------------------------------------------
@@ -75,7 +75,8 @@ module jogo {
 //-----------------------------------------------------HABILIDADES ESPECIAIS--------------------------------------------------------------------
     action paralisia(atacante: Criatura, tomador: Criatura): bool = all {
         atacante.tipo_criatura == Monstro,
-        tomador' = aplica_efeito(atacante, tomador),
+        tomador.tipo_criatura != Monstro,
+        criatura_dado' = criatura_dado.set(tomador.numero_dado, aplica_efeito(atacante, tomador)),
     }
     action ilusao(atacante: Criatura): bool = all {
         atacante.tipo_criatura == Mago,
@@ -85,7 +86,7 @@ module jogo {
         all {
         atacante.tipo_criatura == Druida,
         druida_backup_pra_quando_acabar_a_transformacao' = atacante,                                        
-        criatura_dado' = criatura_dado.set(atacante.numero_dado, URSO),   
+        criatura_dado' = criatura_dado.set(atacante.numero_dado, URSO), //tem a funcao desvirar_urso_de_volta_para_druida
     }
     action cegueira(atacante: Criatura, tomador: Criatura): bool = all {
         atacante.tipo_criatura == Cacador,
@@ -98,59 +99,43 @@ module jogo {
     action ataque_simples(atacante: Criatura, receiver: Criatura): bool = {
         pure val nova_cria = dano_criatura(receiver, atacante.dmg)
         all {
-            atacante.tipo_criatura != Monstro,
+            atacante.tipo_criatura != receiver.tipo_criatura,
             criatura_dado' = criatura_dado.set(nova_cria.numero_dado, nova_cria),
         }
     }
     action desparalizar(atacante: Criatura, receiver: Criatura): bool = {
+        all { // Pedir prof se pode fazer isso
+            criatura_dado.values().exists(c => c.tipo_criatura != Monstro and c.efeito_aplicado == Paralisia) == true,
+            curar(receiver),
+        }        
+    }
+    action curar(receiver: Criatura): bool ={ // faz parte de desparalizar
         nondet curado = criatura_dado.values().filter(c => c.tipo_criatura != Monstro and c.efeito_aplicado == Paralisia).oneOf()
         val aux = remove_efeito(curado)
         all {
+            curado != Set(),
             atacante.tipo_criatura != Monstro,
             criatura_dado' = criatura_dado.set(receiver.numero_dado, aux),
         }
     }
     action desvirar_urso_de_volta_para_druida(c: Criatura): bool = all{
-        c.tipo_criatura == Druida,
+        c.name == "Pooh",
         criatura_dado' = criatura_dado.set(c.numero_dado, druida_backup_pra_quando_acabar_a_transformacao),
     }
     action usar_habilidade(atacante: Criatura, receiver: Criatura): bool = {
-        val dado_cria_tomante = crias.get(receiver)
-        val aux = crias.mapRemove(receiver)
         all {
-            aplica_efeito(atacante, receiver),
-            crias' = aux.put(receiver, dado_cria_tomante),
+            criatura_dado' = criatura_dado.set(receiver.numero_dado, aplica_efeito(atacante, receiver)),
         }
     }
     
-    action escolha_aleatoria_mk2(atacante: Criatura, recebedor: Criatura, string_que_dita_a_habilidade: str): bool = {
-        all {
-            if(proximo_ataque == "curar_paralisia") {
-                desparalizar(atacante, recebedor)
-            } else if(proximo_ataque == "usar_habilidade") {
-                usar_habilidade(atacante, recebedor)
-            } else if(proximo_ataque == "ataque_simples") {
-                ataque_simples(atacante, recebedor)
-            } else {
-                false
-            }
-        }
-    } 
-    action escolher_ataque(atacante: Criatura, recebedor: Criatura): bool = {
-        if(atacante.tipo_criatura == Monstro) {
-            proximo_ataque' = "paralisia"
-        } else {
-            nondet escolha = escolhas_de_ataques_para_as_batalhas.oneOf()
-            proximo_ataque' = escolha
-        }
-    }
 
 
 
 //-----------------------------------------------------FUNCOES PRINCIPAIS--------------------------------------------------------------------
 
     action batalha(atacante: Criatura, receiver: Criatura): bool ={
-        nondet tipo_de_ataque = escolhas_de_ataques_para_as_batalhas.oneOf()
+        //nondet tipo_de_ataque = escolhas_de_ataques_para_as_batalhas.oneOf()
+        nondet proximo_ataque = escolhas_de_ataques_para_as_batalhas.oneOf()
         val tem_alguem_paralisado = criatura_dado.values().filter(c => c.tipo_criatura != Monstro).forall(c => c.efeito_aplicado != Paralisia)
         all {
             //garantias
@@ -159,15 +144,16 @@ module jogo {
             receiver.hp > 0,
             atacante.ja_jogou == false,
             //ações
-            escolher_ataque(atacante, receiver),
-            escolha_aleatoria_mk2(atacante, receiver),        
+            if(proximo_ataque == "curar_paralisia") {desparalizar(atacante, receiver)} 
+            else if(proximo_ataque == "usar_habilidade") {usar_habilidade(atacante, receiver)} 
+            else {ataque_simples(atacante, receiver)},
             criatura_dado' = criatura_dado.set(atacante.numero_dado, terminou_acao(atacante)),
         }
-        // Druida usa habilidade em si | Montro ataca Animal | Mago adiciona ovelhaovelha✅ | Cacador cegacega✅
-        // Se atacante for Monstro, ele ataca o Animal, nao pode usar habilidade
-        // No usar habilidade, se atacante.tipo_criatura == Druida, atacante = recebedor
+        // Druida usa habilidade em si✅ | Montro ataca AnimalAnimal🆘 | Mago adiciona ovelhaovelha✅ | Cacador cegacega✅
+        // Se atacante for Monstro, ele ataca o Animal, nao pode usar habilidade🆘
+        // No usar habilidade, se atacante.tipo_criatura == Druida, atacante = recebedor🆘
         // Se Cacador usar habilidade, recebedor == Monstro
-        // All: Se atacante = Monstro, Recebedor != Monstro
+        // All: Se atacante = Monstro, Recebedor != MonstroMonstro✅
     }
 
     action init = {
@@ -191,13 +177,13 @@ module jogo {
 
         pure val aux = Set({...mago, numero_dado: dado_mago}, {...cacador, numero_dado: dado_cacador}, {...druida, numero_dado: dado_druida}, {...monstro, numero_dado: dado_monstro})
 
-        pure val aux2 = criatura_dado' = aux.map(cria => (cria.numero_dado, cria)).setToMap()  // mudar criaturas
+        pure val aux2 = aux.map(cria => (cria.numero_dado, cria)).setToMap()  // mudar criaturas
         all {
             acabou_de_atacar' = aux2.values().fold(personagem_inicial, (acc, criatura) => if (criatura.numero_dado > acc.numero_dado) criatura else acc),
             alvo' = if(acabou_de_atacar.tipo_criatura == Monstro) personagem_inicial else monstro_inicial,
             batalha(acabou_de_atacar, alvo),
-            // crias' = criaturas_disponiveis.exclude(Set(acabou_de_atacar._1 -> acabou_de_atacar._2)).setToMap(),
             criatura_dado' = atualizar_atributos_do_monstro(aux2, acabou_de_atacar, monstro),
+            step,
         }
     }
 
@@ -239,11 +225,24 @@ module jogo {
 
 
 //-----------------------------------------------------LEGACY--------------------------------------------------------------------
-// action escolha_aleatoria(atacante: Criatura, recebedor: Criatura): bool = any {
-//         desparalizar(atacante, recebedor),
-//         usar_habilidade(atacante, recebedor),
-//         ataque_simples(atacante, recebedor),
-//     }
+action escolha_aleatoria(atacante: Criatura, recebedor: Criatura): bool = any {
+        desparalizar(atacante, recebedor),
+        usar_habilidade(atacante, recebedor),
+        ataque_simples(atacante, recebedor),
+    }
+action escolha_aleatoria_mk2(atacante: Criatura, recebedor: Criatura, string_que_dita_a_habilidade: str): bool = {
+        if(proximo_ataque == "curar_paralisia") {
+                desparalizar(atacante, recebedor)
+            } else if(proximo_ataque == "usar_habilidade") {
+                usar_habilidade(atacante, recebedor)
+            } else if(proximo_ataque == "ataque_simples") {
+                ataque_simples(atacante, recebedor)
+            } else {
+                false
+        }
+} 
+// crias' = criaturas_disponiveis.exclude(Set(acabou_de_atacar._1 -> acabou_de_atacar._2)).setToMap(),
+
 }
 
 
