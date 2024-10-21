@@ -132,7 +132,10 @@ module jogo {
     }
     
 
-
+// Ovelha: toda vez que é o turno do Mago, ovelha sai
+// Quando for o turno do Druida: se ele estiver em modo Urso e atacou=true -> ele ataca primeiro e depois desvira urso | 
+// Talvez adicionar: esta_paralisado ?
+// 
 
 //-----------------------------------------------------FUNCOES PRINCIPAIS--------------------------------------------------------------------
 
@@ -166,6 +169,7 @@ module jogo {
     }
 
     action init = {
+        // TODO: adicionar logica de rounds: cegueira, urso e ovelha duram 1 round
         // pure val auxCreatures = CRIATURAS
         pure val mago =     CRIATURAS.filter(criatura => criatura.tipo_criatura == Mago)
         pure val cacador =  CRIATURAS.filter(criatura => criatura.tipo_criatura == Cacador)
@@ -215,13 +219,11 @@ module jogo {
     val o_monstro_nao_morre = dado_criaturas.values().filter(c => c.tipo_criatura == Monstro).forall(c => c.hp > 0)
     val os_personagens_nao_morrem = dado_criaturas.values().filter(c => c.tipo_criatura != Monstro).forall(c => c.hp > 0)
 
-     // 99 = 4  20  10  9
-
 
 
 //-----------------------------------------------------INVARIANTES--------------------------------------------------------------------
 
-    // Invariante: O monstro ou o Criatura ainda estão vivos
+    // Invariante: O monstro e a criatura ainda estão vivos
     // val inv = crias.values().exists(p => p.hp > 0) and monstro.hp > 0
 
 }
