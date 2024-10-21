@@ -24,7 +24,7 @@ module jogo {
         { name: "Mike wazousky",    hp: 100,    dmg: 10, numero_dado: 0, ja_jogou: false, tipo_criatura: Monstro,   ataque_especial: Paralisia,             efeito_aplicado: Nenhum }
     )
 
-    pure val OVELHA = {name: "Shaun", hp: 1, dmg: 0, numero_dado: 0, ja_jogou: false, tipo_criatura: Animal, ataque_especial: Nenhum, efeito_aplicado: Nenhum}
+    pure val OVELHA = {name: "Shaun", hp: 1, dmg: 0, numero_dado: -99, ja_jogou: false, tipo_criatura: Animal, ataque_especial: Nenhum, efeito_aplicado: Nenhum}
     pure val URSO = {name: "Pooh", hp: 60, dmg: 20, numero_dado: 0, ja_jogou: false, tipo_criatura: Animal, ataque_especial: Nenhum, efeito_aplicado: Nenhum}
 
     pure val DADO = 1.to(20)
@@ -47,7 +47,8 @@ module jogo {
         { ...m, dmg: 20}
     }
     pure def terminou_acao(c: Criatura): Criatura = {
-        { ...c, ja_jogou: true}
+        val r = { ...c, ja_jogou: not(c.ja_jogou)}
+        { ...r, numero_dado: -r.numero_dado}
     }
     pure def aplica_efeito(atacante: Criatura, tomador: Criatura): Criatura = {
         { ...tomador, efeito_aplicado: atacante.ataque_especial}
@@ -61,9 +62,22 @@ module jogo {
     pure def atualiza_map(crias: int -> Criatura): int -> Criatura = {
         crias.values().map(cria => (cria.numero_dado, cria)).setToMap() 
     }
+    pure def remover_ovelha(acabou_de_atacar: Criatura, crias: int -> Criatura): int -> Criatura = {
+        if (acabou_de_atacar.ja_jogou == true) {
+            crias.mapRemove(-99)
+        } else {
+            crias.set(abs(acabou_de_atacar.numero_dado), terminou_acao(acabou_de_atacar))
+        }
+    }
+    pure def remover_cegueira(c: Criatura): Criatura = {
+        { ...c, ataque_especial: Nenhum}
+    }
+    pure def remover_urso(c: Criatura): Criatura = {
+        { ...c, numero_dado: -c.numero_dado}
+    }
     pure def atualizar_atributos_das_criaturas (crias: int -> Criatura, acabou_de_atacar: Criatura, monstro: Criatura): int -> Criatura = {
-        pure val aux = crias.set(abs(acabou_de_atacar.numero_dado), inverter_dado(acabou_de_atacar))
-        aux.set(abs(monstro.numero_dado), update_dmg_monstro(monstro)) // perguntar para a prof se pode fazer isso: isso vai retornar um Map?
+        crias.set(abs(acabou_de_atacar.numero_dado), inverter_dado(acabou_de_atacar)).set(abs(monstro.numero_dado), update_dmg_monstro(monstro)) // perguntar para a prof se pode fazer isso: isso vai retornar um Map?
+        // aux
     }
     pure def adicionar_dado(criatura: Criatura, dado: int): Criatura = {
         {...criatura, numero_dado: dado}
@@ -140,6 +154,15 @@ module jogo {
 //-----------------------------------------------------FUNCOES PRINCIPAIS--------------------------------------------------------------------
 
     action batalha(atacante: Criatura, receiver: Criatura): bool = {
+        // Fazer o que for preciso antes da batalha
+        val aux = match acabou_de_atacar.tipo_criatura {
+            | Mago      => remover_ovelha(acabou_de_atacar)
+            | Monstro   => remover_cegueira(acabou_de_atacar) // Se puder, remover a cegueira
+            | Druida    => remover_urso(acabou_de_atacar)
+            | Cacador   => dado_criaturas
+            | Animal    => dado_criaturas //nao sei ainda
+        }
+
         //nondet tipo_de_ataque = escolhas_de_ataques_para_as_batalhas.oneOf()
         val tem_alguem_paralisado = dado_criaturas.values().filter(c => c.tipo_criatura != Monstro).forall(c => c.efeito_aplicado != Paralisia)
         val existe_animal = dado_criaturas.values().exists(c => c.tipo_criatura == Animal)
@@ -208,7 +231,8 @@ module jogo {
             pure val aux = CRIATURAS.map(cria => (cria.numero_dado, inverter_dado(cria))).setToMap()
         }
         all {
-            acabou_de_atacar' = aux.values().fold(personagem_inicial, (acc, criatura) => if (criatura.numero_dado > acc.numero_dado) criatura else acc), // pedir para a prof se as verificacoes em batalha ja sao o suficiente
+            acabou_de_atacar' = aux.values().fold(personagem_inicial, (acc, criatura) => if (criatura.numero_dado > acc.numero_dado) criatura else acc),
+            // pedir para a prof se as verificacoes em batalha ja sao o suficiente
             alvo' = if(acabou_de_atacar.tipo_criatura == Monstro) personagem_inicial else monstro_inicial,
             batalha(acabou_de_atacar, alvo),
             dado_criaturas' = atualizar_atributos_das_criaturas(CRIATURAS, acabou_de_atacar, monstro),
