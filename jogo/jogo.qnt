@@ -38,8 +38,9 @@ module jogo {
     var alvo: Criatura
     var druida_backup_pra_quando_acabar_a_transformacao: Criatura
     var proximo_ataque: str
-    var idx_monstro: int
     var monstrengo: Criatura
+    var ultimo_ataque: Option[{ attacker: Criatura, receiver: Criatura, acao: str, damage: int }]
+
 
 
 //-----------------------------------------------------FUNCOES AUXILIARES--------------------------------------------------------------------
@@ -87,70 +88,76 @@ module jogo {
     
 
 //-----------------------------------------------------HABILIDADES ESPECIAIS--------------------------------------------------------------------
-    action paralisia(atacante: Criatura, tomador: Criatura): bool = all {
+    action paralisia(atacante: Criatura, tomador: Criatura, cria: int -> Criatura): bool = all {
         atacante.tipo_criatura == Monstro,
         tomador.tipo_criatura != Monstro,
-        dado_criaturas' = dado_criaturas.setBy(abs(tomador.numero_dado), c => aplica_efeito(atacante, tomador))
+        ultimo_ataque' = Some({ attacker: atacante, receiver: tomador, acao: "Paralisia", damage: 0 }),
+        dado_criaturas' = cria.setBy(abs(tomador.numero_dado), c => aplica_efeito(atacante, tomador))
             .setBy(abs(atacante.numero_dado), c => inverter_dado(c))
             .setBy(abs(atacante.numero_dado), m => update_dmg_monstro(m)),
     }
-    action ilusao(atacante: Criatura, id_monstro: int): bool = {
+    action ilusao(atacante: Criatura, id_monstro: int, cria: int -> Criatura): bool = {
         all {
             atacante.tipo_criatura == Mago,
-
-            dado_criaturas' = dado_criaturas.put(OVELHA.numero_dado, OVELHA)
+            ultimo_ataque' = Some({ attacker: atacante, receiver: atacante, acao: "Ilusao", damage: 0 }),
+            dado_criaturas' = cria.put(OVELHA.numero_dado, OVELHA)
                 .setBy(abs(atacante.numero_dado), c => inverter_dado(c))
                 .setBy(abs(id_monstro), m => update_dmg_monstro(m)),
         }
     }
-    action transformacao_selvagem(atacante: Criatura, id_monstro: int): bool = {
+    action transformacao_selvagem(atacante: Criatura, id_monstro: int, cria: int -> Criatura): bool = {
         all {
             atacante.tipo_criatura == Druida,
             // druida_backup_pra_quando_acabar_a_transformacao' = atacante,
-            dado_criaturas' = dado_criaturas.setBy(abs(atacante.numero_dado), c => URSO)
+            ultimo_ataque' = Some({ attacker: atacante, receiver: atacante, acao: "TransformacaoSelvagem", damage: 0 }),
+            dado_criaturas' = cria.setBy(abs(atacante.numero_dado), c => URSO)
                 .setBy(abs(atacante.numero_dado), c => inverter_dado(c))
                 .setBy(abs(id_monstro), m => update_dmg_monstro(m)), //tem a funcao desvirar_urso_de_volta_para_druida
         }
     }
-    action cegueira(atacante: Criatura, tomador: Criatura, id_monstro: int): bool = all {
+    action cegueira(atacante: Criatura, tomador: Criatura, id_monstro: int, cria: int -> Criatura): bool = all {
         atacante.tipo_criatura == Cacador,
         tomador.tipo_criatura == Monstro,
         // tomador' = aplica_efeito(atacante, tomador),
-        dado_criaturas' = dado_criaturas.setBy(abs(tomador.numero_dado), c => aplica_efeito(atacante, tomador))
+        ultimo_ataque' = Some({ attacker: atacante, receiver: tomador, acao: "Cegueira", damage: 0 }),
+        dado_criaturas' = cria.setBy(abs(tomador.numero_dado), c => aplica_efeito(atacante, tomador))
             .setBy(abs(atacante.numero_dado), c => inverter_dado(c))
             .setBy(abs(id_monstro), m => update_dmg_monstro(m)),
     }
 
 
 //-----------------------------------------------------FUNCOES BASICAS--------------------------------------------------------------------
-    action ataque_simples(atacante: Criatura, receiver: Criatura, id_monstro: int): bool = {
+    action ataque_simples(atacante: Criatura, receiver: Criatura, id_monstro: int, crias: int -> Criatura): bool = {
         pure val nova_cria = dano_criatura(receiver, atacante.dmg)
         all {
-            atacante.tipo_criatura != receiver.tipo_criatura,
-            dado_criaturas' = dado_criaturas.setBy(abs(atacante.numero_dado), c => nova_cria),
+            atacante.tipo_criatura != Monstro implies receiver.tipo_criatura == Monstro,
+            atacante.tipo_criatura == Monstro implies receiver.tipo_criatura != Monstro,
+            ultimo_ataque' = Some({ attacker: atacante, receiver: receiver, acao: "AtaqueSimples", damage: atacante.dmg }),
+            dado_criaturas' = crias.setBy(abs(atacante.numero_dado), c => nova_cria),
         }
     }
-    action desparalizar(atacante: Criatura, receiver: Criatura): bool = {
+    action desparalizar(atacante: Criatura, receiver: Criatura, crias: int -> Criatura): bool = {
         nondet curado = dado_criaturas.values().filter(c => c.tipo_criatura != Monstro and c.efeito_aplicado == Paralisia).oneOf()
         val aux = remove_efeito(curado)
         all { // Pedir para a prof se pode fazer isso
             atacante.efeito_aplicado != Paralisia,
             atacante.tipo_criatura != Monstro,
+            receiver.tipo_criatura != Monstro,
             dado_criaturas.values().exists(c => c.tipo_criatura != Monstro and c.efeito_aplicado == Paralisia) == true,
             // curar(atacante, receiver),
-            dado_criaturas' = dado_criaturas.setBy(abs(receiver.numero_dado), c => aux),
-
+            ultimo_ataque' = Some({ attacker: atacante, receiver: receiver, acao: "Desparalizar", damage: 0 }),
+            dado_criaturas' = crias.setBy(abs(receiver.numero_dado), c => aux)
         }        
     }
 
-    action usar_habilidade(atacante: Criatura, receiver: Criatura, id_monstro: int): bool = all {
+    action usar_habilidade(atacante: Criatura, receiver: Criatura, id_monstro: int, crias: int -> Criatura): bool = all {
         atacante.efeito_aplicado != Paralisia,
         dado_criaturas.values().size() > 0,
         any {
-            ilusao(atacante, id_monstro),
-            transformacao_selvagem(atacante, id_monstro),
-            cegueira(atacante, receiver, id_monstro),
-            paralisia(atacante, receiver),
+            ilusao(atacante, id_monstro, crias),
+            transformacao_selvagem(atacante, id_monstro, crias),
+            cegueira(atacante, receiver, id_monstro, crias),
+            paralisia(atacante, receiver, crias),
         }
     }
 
@@ -196,6 +203,8 @@ module jogo {
             recebedor_rng.hp > 0, // Pedir para a prof se pode fazer isso 
             atacante.ja_jogou == false,
             dado_criaturas.values().size() > 0,
+            (dados_crias.exists(c => c.tipo_criatura == Animal) and atacante.tipo_criatura == Monstro) 
+                implies recebedor_rng.tipo_criatura == Animal,
             if (escolha == Um) {
                 desparalizar(atacante, recebedor_rng)
             } else if (escolha == Dois) {
@@ -234,9 +243,9 @@ module jogo {
         val acabou_ataque = crias.fold(personagem_inicial, (acc, criatura) => if (criatura.numero_dado > acc.numero_dado) criatura else acc)
         val alvoo_ataque = if(acabou_ataque.tipo_criatura == Monstro) personagem_inicial else monstro_inicial
         all {
-            monstrengo' = {...monstro, numero_dado: dado_monstro},
-            idx_monstro'= dado_monstro,
-            dado_criaturas' = dado_e_criatura,
+            monstrengo' = { name: "Mike wazousky", hp: 100, dmg: 10, numero_dado: dado_monstro, ja_jogou: false, tipo_criatura: Monstro, ataque_especial: Paralisia, efeito_aplicado: Nenhum },
+            dado_criaturas' = crias.map(cria => (cria.numero_dado, cria)).setToMap(),
+            ultimo_ataque' = None,
             CRIATURAS' = dado_e_criatura.values(),
         }
     }
@@ -244,7 +253,7 @@ module jogo {
 
 
     // // Ação: Realiza um passo no combate
-    action step: bool = {
+    action step = {
 
         val crias_att = 
             if(CRIATURAS.exists(c => c.numero_dado > 0)){
@@ -261,27 +270,18 @@ module jogo {
         val vai_atacar = dado_criaturas.values().fold(OVELHA, (acc, criatura) => if (criatura.numero_dado > acc.numero_dado) criatura else acc)
         val alvo_ataque = if(vai_atacar.tipo_criatura == Monstro) personagem_inicial else monstrengo
         all {
+            monstrengo.numero_dado > 0,
+
             // druida_backup_pra_quando_acabar_a_transformacao' = druida,
             not(empty(dado_criaturas.values())),
             not(empty(criaturas_att_map.values())),
-            // pedir para a prof se as verificacoes em batalha ja sao o suficiente
-            batalha(vai_atacar, alvo_ataque, idx_monstro, dado_criaturas),
-            // dado_criaturas' = atualizar_atributos_das_criaturas(criaturas_att_map, acabou_de_atacar, criaturas_att_map.get(idx_monstro)),
-            CRIATURAS' = dado_criaturas.values()
+            batalha(vai_atacar, alvo_ataque, monstrengo.numero_dado, dado_criaturas),
+            CRIATURAS' = dado_criaturas.values(),
+            druida_backup_pra_quando_acabar_a_transformacao' = if(vai_atacar.tipo_criatura == Druida) vai_atacar else druida_backup_pra_quando_acabar_a_transformacao
+
         }
     }
 
     val o_monstro_nao_morre = dado_criaturas.values().filter(c => c.tipo_criatura == Monstro).forall(c => c.hp > 0)
     val os_personagens_nao_morrem = dado_criaturas.values().filter(c => c.tipo_criatura != Monstro).forall(c => c.hp > 0)
-
-
-
-//-----------------------------------------------------INVARIANTES--------------------------------------------------------------------
-
-    // Invariante: O monstro e a criatura ainda estão vivos
-    // val inv = crias.values().exists(p => p.hp > 0) and monstro.hp > 0
-
 }
-
-
-

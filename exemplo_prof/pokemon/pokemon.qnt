@@ -103,7 +103,7 @@ module pokemon {
       next_team' = if (team_A_pokemon.speed >= team_B_pokemon.speed) "A" else "B",
       last_attack' = None
     }
-  }
+  }     
 
   action step = {
     val attacker = pokemons.get(next_team)
