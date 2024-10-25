@@ -181,7 +181,7 @@ module jogo {
             | Druida    => dados_das_criaturas
         }
 
-        // val novo_atacante = efeito_removido_case.get(abs(atacante.numero_dado))
+        val novo_atacante = efeito_removido_case.get(abs(atacante.numero_dado))
 
         val tem_alguem_paralisado = dados_crias.filter(c => c.tipo_criatura != Monstro).forall(c => c.efeito_aplicado != Paralisia)
         val existe_animal = dados_crias.exists(c => c.tipo_criatura == Animal)
@@ -190,7 +190,7 @@ module jogo {
         nondet escolha = Set(Desparalizar, AtaqueSimples, UsarHabilidade).oneOf()
         
         val recebedor =
-            if (existe_animal and atacante.tipo_criatura == Monstro) {
+            if (existe_animal and novo_atacante.tipo_criatura == Monstro) {
                 dados_crias.filter(c => c.tipo_criatura == Animal)
             } else {
                 dados_crias.filter(c => c.name == receiver.name )
@@ -199,22 +199,22 @@ module jogo {
         nondet recebedor_rng = recebedor.oneOf()
         all {
             not(empty(dados_crias.filter(c => c.name == receiver.name ))),
-            atacante.name != "Shaun",
-            atacante.hp > 0, 
+            novo_atacante.name != "Shaun",
+            novo_atacante.hp > 0, 
             recebedor_rng.hp > 0,
             dados_crias.size() > 0,
-            (dados_crias.exists(c => c.tipo_criatura == Animal) and atacante.tipo_criatura == Monstro) 
+            (dados_crias.exists(c => c.tipo_criatura == Animal) and novo_atacante.tipo_criatura == Monstro) 
                 implies recebedor_rng.tipo_criatura == Animal,
             any {
-                passar_roud(atacante, efeito_removido_case),
-                desparalizar(atacante, recebedor_rng, efeito_removido_case),
-                usar_habilidade(atacante, recebedor_rng, id_monstro, efeito_removido_case),
-                ataque_simples(atacante, recebedor_rng, id_monstro, efeito_removido_case)
+                passar_roud(novo_atacante, efeito_removido_case),
+                desparalizar(novo_atacante, recebedor_rng, efeito_removido_case),
+                usar_habilidade(novo_atacante, recebedor_rng, id_monstro, efeito_removido_case),
+                ataque_simples(novo_atacante, recebedor_rng, id_monstro, efeito_removido_case)
             },
             
-            cego_esse_round' = if (atacante.tipo_criatura == Cacador and escolha == UsarHabilidade)
+            cego_esse_round' = if (novo_atacante.tipo_criatura == Cacador and escolha == UsarHabilidade)
                     true 
-                else if (atacante.tipo_criatura != Monstro)
+                else if (novo_atacante.tipo_criatura != Monstro)
                     cego_esse_round
                 else 
                     false,
