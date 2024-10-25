@@ -1,0 +1,6 @@
+2024-10-22T11:42:54,293 [main] INFO  a.f.a.t.Tool$ - # APALACHE version: 0.46.1 | build: 0d72eb1
+2024-10-22T11:42:54,312 [main] INFO  a.f.a.t.t.o.ServerCmd - Starting server on port 8822...
+2024-10-22T11:42:58,204 [zio-default-async-5] INFO  a.f.a.i.p.PassChainExecutor$ - PASS #0: SanyParser
+2024-10-22T11:42:59,640 [zio-default-async-5] ERROR a.f.a.t.p.i.SanyParserPassImpl -   > Error parsing file StringSource(Qnt)
+2024-10-22T11:42:59,641 [zio-default-async-5] ERROR a.f.a.t.p.i.SanyParserPassImpl -   > requirement failed: Expected lhs to be a primed variable name, found CRIATURAS()'.
+2024-10-22T11:42:59,650 [zio-default-async-5] DEBUG a.f.a.i.p.PassChainExecutor$ - PASS #0: SanyParser [FAIL]

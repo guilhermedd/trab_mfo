@@ -120,6 +120,7 @@ module jogo {
         pure val novo_atacante = inverter_dado(atacante)
         val monstro = if(novo_atacante.tipo_criatura == Monstro) novo_atacante else nova_cria
         all {
+            atacante.efeito_aplicado != Paralisia,
             atacante.tipo_criatura != Monstro implies receiver.tipo_criatura == Monstro,
             atacante.tipo_criatura == Monstro implies receiver.tipo_criatura != Monstro,
             atacante.numero_dado > 0,
@@ -158,6 +159,7 @@ module jogo {
 
     action passar_roud(atacante: Criatura, crias: int -> Criatura): bool = {
         all {
+            atacante.efeito_aplicado == Paralisia,
             ultimo_ataque' = Some({ attacker: atacante, receiver: atacante, acao: "Passar Round", damage: 0 }),
             dado_criaturas' = crias.setBy(abs(atacante.numero_dado), c => inverter_dado(c))
         }
@@ -178,6 +180,8 @@ module jogo {
             | Cacador   => dados_das_criaturas
             | Druida    => dados_das_criaturas
         }
+
+        // val novo_atacante = efeito_removido_case.get(abs(atacante.numero_dado))
 
         val tem_alguem_paralisado = dados_crias.filter(c => c.tipo_criatura != Monstro).forall(c => c.efeito_aplicado != Paralisia)
         val existe_animal = dados_crias.exists(c => c.tipo_criatura == Animal)
@@ -201,13 +205,10 @@ module jogo {
             dados_crias.size() > 0,
             (dados_crias.exists(c => c.tipo_criatura == Animal) and atacante.tipo_criatura == Monstro) 
                 implies recebedor_rng.tipo_criatura == Animal,
-            if (atacante.efeito_aplicado == Paralisia) {
-                passar_roud(atacante, efeito_removido_case)
-            } else if (escolha == Desparalizar) {
-                desparalizar(atacante, recebedor_rng, efeito_removido_case)
-            } else if (escolha == UsarHabilidade) {
-                usar_habilidade(atacante, recebedor_rng, id_monstro, efeito_removido_case)
-            } else {
+            any {
+                passar_roud(atacante, efeito_removido_case),
+                desparalizar(atacante, recebedor_rng, efeito_removido_case),
+                usar_habilidade(atacante, recebedor_rng, id_monstro, efeito_removido_case),
                 ataque_simples(atacante, recebedor_rng, id_monstro, efeito_removido_case)
             },
             
