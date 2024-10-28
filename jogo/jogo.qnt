@@ -80,7 +80,7 @@ module jogo {
     action paralisia(atacante: Criatura, tomador: Criatura, crias: int -> Criatura): bool = all {
         atacante.tipo_criatura == Monstro,
         tomador.tipo_criatura != Monstro,
-        ultimo_ataque' = Some({ attacker: atacante, receiver: tomador, acao: "Paralisia", damage: 0 }), // PERGUNTAR: esse ultimo ataque é o suficiente? 🥺 -> para deixar registro
+        ultimo_ataque' = Some({ attacker: atacante, receiver: tomador, acao: "Paralisia", damage: 0 }), 
         dado_criaturas' = crias.setBy(abs(tomador.numero_dado), c => aplica_efeito(atacante, tomador))
             .setBy(abs(atacante.numero_dado), c => inverter_dado(c))
             .setBy(abs(atacante.numero_dado), m => update_dmg_monstro(m)),
@@ -169,13 +169,13 @@ module jogo {
 
 //-----------------------------------------------------FUNCOES PRINCIPAIS--------------------------------------------------------------------
 
-    action batalha(atacante: Criatura, receiver: Criatura, id_monstro: int, dados_das_criaturas: int -> Criatura): bool = { // tirar receiver
+    action batalha(atacante: Criatura, receiver: Criatura, id_monstro: int, dados_das_criaturas: int -> Criatura): bool = { 
         val dados_crias = dados_das_criaturas.values()
 
         val monstro_esta_cego = if (atacante.tipo_criatura == Monstro and atacante.efeito_aplicado == Cegueira) true else false
         val efeito_removido_case = match atacante.tipo_criatura {
             | Monstro   => remover_cegueira(atacante, dados_das_criaturas) 
-            | Mago      => dados_das_criaturas.mapRemove(0) // Se puder, remover a ovelha
+            | Mago      => dados_das_criaturas.mapRemove(0) 
             | Animal    => desvirar_urso_de_volta_para_druida(atacante, dados_das_criaturas)
             | Cacador   => dados_das_criaturas
             | Druida    => dados_das_criaturas
@@ -236,7 +236,7 @@ module jogo {
 
         val crias = Set({...mago, numero_dado: dado_mago}, {...cacador, numero_dado: dado_cacador}, {...druida, numero_dado: dado_druida}, {...monstro, numero_dado: dado_monstro})
 
-        val dado_e_criatura = crias.map(cria => (cria.numero_dado, cria)).setToMap()  // mudar criaturas
+        val dado_e_criatura = crias.map(cria => (cria.numero_dado, cria)).setToMap()  
         val acabou_ataque = crias.fold(personagem_inicial, (acc, criatura) => if (criatura.numero_dado > acc.numero_dado) criatura else acc)
         val alvoo_ataque = if(acabou_ataque.tipo_criatura == Monstro) personagem_inicial else monstro
         all {
@@ -252,7 +252,6 @@ module jogo {
 
 
 
-    // // Ação: Realiza um passo no combate
     action step = {
         val creatures = dado_criaturas.values()
         val crias_att = 
@@ -261,22 +260,20 @@ module jogo {
             }
             else {
                 creatures.map(c => inverter_dado(c))
-            } // apenas values()
+            } 
 
         nondet personagem_inicial = creatures.oneOf()
-        // PERGUNTAR: nao estava dando para colocar nunndet na linhc acima 😰. 
+
 
         val criaturas_att_map = crias_att.map(c => abs(c.numero_dado) -> c).setToMap()
         val vai_atacar = criaturas_att_map.values().fold(OVELHA, (acc, criatura) => if (criatura.numero_dado > acc.numero_dado and criatura.hp > 0) criatura else acc)
-        val alvo_ataque = if(vai_atacar.tipo_criatura == Monstro) personagem_inicial else monstrengo // PERGUNTAR: monstrengo, nem  não está salvando no init 😰
-        // PERGUNTAR: como fazer para mostrar os prints, como no exemplo das dicas 😰
-        //PERGUNTAR: rodar e mostrar erro 🥺
+        val alvo_ataque = if(vai_atacar.tipo_criatura == Monstro) personagem_inicial else monstrengo 
+
         all {
             alvo_ataque != vai_atacar,
             vai_atacar.numero_dado > 0,
             monstrengo.numero_dado > 0,
-            // dado_criaturas.values().size() > 0,
-            // not(empty(criaturas_att_map.values())),
+
             batalha(vai_atacar, alvo_ataque, monstrengo.numero_dado, criaturas_att_map),
 
             monstrengo' = update_dmg_monstro(criaturas_att_map.get(monstrengo.numero_dado)),
